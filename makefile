@@ -84,3 +84,28 @@ OLLAMA_MAX_LOADED_MODELS := 2
 
 example01:
 	go run cmd/examples/example01/main.go
+
+example02:
+	go run cmd/examples/example02/main.go
+
+
+
+ollama-up:
+	export OLLAMA_KV_CACHE_TYPE=fp8 && \
+	export OLLAMA_FLASH_ATTENTION=true && \
+	export OLLAMA_NUM_PARALLEL=$(OLLAMA_NUM_PARALLEL) && \
+	export OLLAMA_MAX_LOADED_MODELS=$(OLLAMA_MAX_LOADED_MODELS) && \
+	export OLLAMA_CONTEXT_LENGTH=$(OLLAMA_CONTEXT_LENGTH) && \
+	export OLLAMA_HOST=0.0.0.0 && \
+	ollama serve
+
+ollama-logs:
+	tail -f -n 100 ~/.ollama/logs/server.log
+
+ollama-list-models:
+	ollama list
+
+ollama-check-models:
+	ollama run qwen2.5vl:latest 'Hello, model!'
+	ollama run gpt-oss:latest 'Hello, model!'
+	ollama run mistral-small3.2:latest 'Hello, model!'
