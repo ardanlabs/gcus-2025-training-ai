@@ -355,7 +355,6 @@ func initDB(ctx context.Context, client *mongo.Client) (*mongo.Collection, error
 
 	unique := true
 	indexModel := mongo.IndexModel{
-		Keys:    bson.D{{Key: "id", Value: 1}},
 		Options: &options.IndexOptions{Unique: &unique},
 	}
 	col.Indexes().CreateOne(ctx, indexModel)
