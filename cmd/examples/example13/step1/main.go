@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -331,4 +332,43 @@ func processChunk(ctx context.Context, llmChat *client.LLM, llmEmbed *client.LLM
 
 	fmt.Println("\nDONE")
 	return nil
+}
+
+// -------------------------------------------------------------------------
+
+func getFilesFromDirectory(directoryPath string) ([]string, error) {
+	var files []string
+
+	err := filepath.Walk(directoryPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() && (filepath.Ext(info.Name()) == ".jpg" || filepath.Ext(info.Name()) == ".jpeg" || filepath.Ext(info.Name()) == ".png") {
+			files = append(files, path)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walk directory: %w", err)
+	}
+
+	return files, nil
+}
+
+// -------------------------------------------------------------------------
+
+func readImage(fileName string) ([]byte, string, error) {
+	data, err := os.ReadFile(fileName)
+	if err != nil {
+		return nil, "", fmt.Errorf("read file: %w", err)
+	}
+
+	switch mimeType := http.DetectContentType(data); mimeType {
+	case "image/jpeg", "image/png":
+		return data, mimeType, nil
+	default:
+		return nil, "", fmt.Errorf("unsupported file type: %s: filename: %s", mimeType, fileName)
+	}
 }
