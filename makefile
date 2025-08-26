@@ -88,8 +88,125 @@ example01:
 example02:
 	go run cmd/examples/example02/main.go
 
+example03:
+	go run -exec "env DYLD_LIBRARY_PATH=$$GOPATH/src/github.com/ardanlabs/ai-training/foundation/word2vec/libw2v/lib" cmd/examples/example03/main.go
+
 example04:
 	go run cmd/examples/example04/main.go
+
+example05:
+	go run cmd/examples/example05/main.go
+
+example06:
+	go run cmd/examples/example06/main.go
+
+example07:
+	go run cmd/examples/example07/main.go
+
+example08:
+	go run cmd/examples/example08/*.go
+
+example09-step1:
+	go run cmd/examples/example09/step1/main.go
+
+example09-step2:
+	go run cmd/examples/example09/step2/main.go
+
+example09-step3:
+	go run cmd/examples/example09/step3/main.go
+
+example09-step4:
+	go run cmd/examples/example09/step4/main.go
+
+example09-step5:
+	go run cmd/examples/example09/step5/main.go
+
+example10-step1:
+	export OLLAMA_CONTEXT_LENGTH=$(OLLAMA_CONTEXT_LENGTH) && \
+	go run cmd/examples/example10/step1/main.go
+
+example10-step2:
+	export OLLAMA_CONTEXT_LENGTH=$(OLLAMA_CONTEXT_LENGTH) && \
+	go run cmd/examples/example10/step2/main.go
+
+example10-step3:
+	export OLLAMA_CONTEXT_LENGTH=$(OLLAMA_CONTEXT_LENGTH) && \
+	go run cmd/examples/example10/step3/main.go
+
+example10-step4:
+	export OLLAMA_CONTEXT_LENGTH=$(OLLAMA_CONTEXT_LENGTH) && \
+	go run cmd/examples/example10/step4/*.go
+
+example10-step5:
+	export OLLAMA_CONTEXT_LENGTH=$(OLLAMA_CONTEXT_LENGTH) && \
+	go run cmd/examples/example10/step5/*.go
+
+example11-step1:
+	go run cmd/examples/example11/step1/main.go
+
+example11-step2:
+	export OLLAMA_CONTEXT_LENGTH=$(OLLAMA_CONTEXT_LENGTH) && \
+	go run cmd/examples/example11/step2/*.go
+
+example12-step1:
+	mkdir -p zarf/samples/videos/frames && \
+	rm -rf zarf/samples/videos/frames/* && \
+	go run cmd/examples/example12/step1/main.go
+
+example12-step2:
+	mkdir -p zarf/samples/videos/frames && \
+	rm -rf zarf/samples/videos/frames/* && \
+	go run cmd/examples/example12/step2/main.go
+
+example12-step3:
+	mkdir -p zarf/samples/videos/frames && \
+	rm -rf zarf/samples/videos/frames/* && \
+	go run cmd/examples/example12/step3/*.go
+
+example13-step1:
+	mkdir -p zarf/samples/videos/chunks && \
+	mkdir -p zarf/samples/videos/frames && \
+	rm -rf zarf/samples/videos/chunks/* && \
+	rm -rf zarf/samples/videos/frames/* && \
+	go run cmd/examples/example13/step1/*.go
+
+example13-step2:
+	mkdir -p zarf/samples/videos/chunks && \
+	mkdir -p zarf/samples/videos/frames && \
+	rm -rf zarf/samples/videos/chunks/* && \
+	rm -rf zarf/samples/videos/frames/* && \
+	go run cmd/examples/example13/step2/*.go
+
+example13-step3:
+	mkdir -p zarf/samples/videos/chunks && \
+	mkdir -p zarf/samples/videos/frames && \
+	rm -rf zarf/samples/videos/chunks/* && \
+	rm -rf zarf/samples/videos/frames/* && \
+	go run ./cmd/examples/example13/step3/main.go
+
+# ==============================================================================
+# Manage project
+
+compose-up:
+	rm -rf zarf/docker/db_data && \
+	mkdir -p zarf/docker/db_data/db zarf/docker/db_data/configdb && \
+	chmod -R 777 zarf/docker/db_data && \
+	docker compose -f zarf/docker/compose.yaml up
+
+compose-down:
+	docker compose -f zarf/docker/compose.yaml down
+
+compose-logs:
+	docker compose logs -n 100
+
+# ==============================================================================
+# Embedding tooling
+
+embedding-up:
+	uv run cmd/embedding/embedding.py
+
+# ==============================================================================
+# Ollama tooling
 
 ollama-up:
 	export OLLAMA_KV_CACHE_TYPE=fp8 && \
@@ -97,7 +214,6 @@ ollama-up:
 	export OLLAMA_NUM_PARALLEL=$(OLLAMA_NUM_PARALLEL) && \
 	export OLLAMA_MAX_LOADED_MODELS=$(OLLAMA_MAX_LOADED_MODELS) && \
 	export OLLAMA_CONTEXT_LENGTH=$(OLLAMA_CONTEXT_LENGTH) && \
-	export OLLAMA_HOST=0.0.0.0 && \
 	ollama serve
 
 ollama-logs:
@@ -110,6 +226,57 @@ ollama-check-models:
 	ollama run qwen2.5vl:latest 'Hello, model!'
 	ollama run gpt-oss:latest 'Hello, model!'
 	ollama run mistral-small3.2:latest 'Hello, model!'
+
+# ==============================================================================
+# Run Tooling
+
+download-data:
+	curl -o zarf/data/example3.gz -X GET https://snap.stanford.edu/data/amazon/productGraph/categoryFiles/reviews_Cell_Phones_and_Accessories_5.json.gz \
+	&& gunzip -k -d zarf/data/example3.gz \
+	&& mv zarf/data/example3 zarf/data/example3.json
+
+clean-data:
+	go run cmd/cleaner/main.go
+
+mongo:
+	mongosh -u ardan -p ardan mongodb://localhost:27017
+
+pgcli:
+	pgcli postgresql://postgres:postgres@localhost
+
+openwebui:
+	open -a "Google Chrome" http://localhost:3000/
+
+# ==============================================================================
+# VLLM
+# You need to add this to your .env file
+# 	export VLLM_CPU_KVCACHE_SPACE=26
+
+vllm-install:
+	uv pip install vllm
+
+vllm-update:
+	uv pip install --upgrade vllm
+
+vllm-run:
+	source .env && uv run vllm serve --host 0.0.0.0 --port 8000 "NousResearch/Hermes-3-Llama-3.1-8B"
+
+vllm-compose-up:
+	docker compose -f zarf/docker/compose-owu-vllm.yaml up
+
+vllm-compose-down:
+	docker compose -f zarf/docker/compose-owi-vllm.yaml down
+
+vllm-test:
+	curl -X POST "http://localhost:8000/v1/chat/completions" \
+		-H "Content-Type: application/json" \
+		--data '{ \
+			"model": "NousResearch/Hermes-3-Llama-3.1-8B", \
+			"messages": [ \
+				{"role": "system", "content": [{"type": "text", "text": "You are an expert developer and you are helping the user with their question."}]}, \
+				{"role": "user", "content": [{"type": "text", "text": "How do you declare a variable in Python?"}]} \
+			] \
+		}'
 
 # ==============================================================================
 # Go Modules support
