@@ -10,6 +10,7 @@ import (
 	"go/token"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -485,29 +486,30 @@ func (gce *GoModTidy) toolDocument() client.D {
 		"type": "function",
 		"function": client.D{
 			"name":        gce.name,
-			"description": "Edit Golang source code files including adding, replacing, and deleting lines.",
-			"parameters": client.D{
-				"type": "object",
-				"properties": client.D{
-					"path": client.D{
-						"type":        "string",
-						"description": "Relative path and name of the Golang file",
-					},
-					"line_number": client.D{
-						"type":        "integer",
-						"description": "The line number for the code change",
-					},
-					"type_change": client.D{
-						"type":        "string",
-						"description": "The type of change to make: add, replace, delete",
-					},
-					"line_change": client.D{
-						"type":        "string",
-						"description": "The text to add, replace, delete",
-					},
-				},
-				"required": []string{"path", "line_number", "type_change", "line_change"},
-			},
+			"description": "Edit Go projects making sure that they are always tidy and don't contain extra dependencies.",
+			"parameters": client.D{},
 		},
 	}
+}
+
+// Call is the function that is called by the agent to edit a file when the model
+// requests the tool with the specified parameters.
+func (gce *GoModTidy) Call(ctx context.Context, toolCall client.ToolCall) (resp client.D) {
+	defer func() {
+		if r := recover(); r != nil {
+			resp = toolErrorResponse(toolCall.ID, gce.name, fmt.Errorf("%s", r))
+		}
+	}()
+
+	cmd := exec.Command("go", "mod", "tidy")
+	cmd.Dir = "."
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return toolErrorResponse(toolCall.ID, gce.name, fmt.Errorf("tidying up the project: %s", err))
+	}
+
+	data := fmt.Sprintf("go mod tidy output was: %s", output)
+
+	return toolSuccessResponse(toolCall.ID, gce.name, "message", data)
 }
