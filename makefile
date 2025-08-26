@@ -88,7 +88,8 @@ example01:
 example02:
 	go run cmd/examples/example02/main.go
 
-
+example04:
+	go run cmd/examples/example04/main.go
 
 ollama-up:
 	export OLLAMA_KV_CACHE_TYPE=fp8 && \
@@ -109,3 +110,125 @@ ollama-check-models:
 	ollama run qwen2.5vl:latest 'Hello, model!'
 	ollama run gpt-oss:latest 'Hello, model!'
 	ollama run mistral-small3.2:latest 'Hello, model!'
+
+# ==============================================================================
+# Go Modules support
+
+tidy:
+	go mod tidy
+	go mod vendor
+
+deps-upgrade:
+	go get -u -v ./...
+	go mod tidy
+	go mod vendor
+
+# ==============================================================================
+# Python Dependencies
+
+deps-python-sync:
+	uv sync
+
+deps-python-upgrade:
+	uv lock --upgrade && uv sync
+
+deps-python-outdated:
+	uv pip list --outdated
+
+# ==============================================================================
+# FFMpeg test commands
+
+ffmpeg-extract-chunks:
+	rm -rf zarf/samples/videos/chunks/*
+	ffmpeg -i zarf/samples/videos/test_rag_video.mp4 \
+		-c copy -map 0 -f segment -segment_time 15 -reset_timestamps 1 \
+		-loglevel error \
+		zarf/samples/videos/chunks/output_%05d.mp4
+
+ffmpeg-extract-frames:
+	rm -rf zarf/samples/videos/frames/*
+	ffmpeg -skip_frame nokey -i zarf/samples/videos/chunks/output_00000.mp4 \
+		-frame_pts true -fps_mode vfr \
+		-loglevel error \
+		zarf/samples/videos/frames/frame-%05d.jpg
+
+ffmpeg-check-chunk-duration:
+	ffprobe -v quiet -print_format json -show_entries format=duration zarf/samples/videos/chunks/output_00000.mp4
+	ffprobe -v quiet -print_format json -show_entries format=duration zarf/samples/videos/chunks/output_00002.mp4
+	ffprobe -v quiet -print_format json -show_entries format=duration zarf/samples/videos/chunks/output_00003.mp4
+
+# ==============================================================================
+# curl test commands
+
+curl-tooling:
+	curl http://localhost:11434/v1/chat/completions \
+	-H "Content-Type: application/json" \
+	-d '{ \
+	"model": "gpt-oss:latest", \
+	"messages": [ \
+		{ \
+			"role": "user", \
+			"content": "What is the weather like in New York, NY?" \
+		} \
+	], \
+	"stream": false, \
+	"tools": [ \
+		{ \
+			"type": "function", \
+			"function": { \
+				"name": "get_current_weather", \
+				"description": "Get the current weather for a location", \
+				"parameters": { \
+					"type": "object", \
+					"properties": { \
+						"location": { \
+							"type": "string", \
+							"description": "The location to get the weather for, e.g. San Francisco, CA" \
+						} \
+					}, \
+					"required": ["location"] \
+				} \
+			} \
+		} \
+  	], \
+	"tool_selection": "auto", \
+	"options": { "num_ctx": 32000 } \
+	}'
+
+# ==============================================================================
+
+# This will establish a SSE session and this is where we will get the sessionID
+# and the results of the call.
+curl-mcp-get-session:
+	curl -N -H "Accept: text/event-stream" http://localhost:8080/tool_list_files
+
+# Once we have the sessionID, we can initialize the session.
+# Replace the sessionID with the one you get from the SSE session.
+curl-mcp-init:
+	curl -X POST http://localhost:8080/tool_list_files?sessionid=$(SESSIONID) \
+	-H "Content-Type: application/json" \
+	-d '{ \
+		"jsonrpc": "2.0", \
+		"id": 1, \
+		"method": "initialize", \
+		"params": { \
+			"protocolVersion": "2024-11-05", \
+			"capabilities": {}, \
+			"clientInfo": {"name": "curl-client", "version": "1.0.0"} \
+		} \
+	}'
+
+# Then we can make the actual tool call. The response will be streamed in the
+# session call. Replace the sessionID with the one you get from the SSE session.
+curl-mcp-tool-call:
+	curl -X POST http://localhost:8080/tool_list_files?sessionid=$(SESSIONID) \
+	-H "Content-Type: application/json" \
+	-d '{ \
+		"jsonrpc": "2.0", \
+		"id": 2, \
+		"method": "tools/call", \
+		"params": { \
+			"name": "tool_list_files", \
+			"arguments": {"filter": "list any files that have the name example"} \
+		} \
+	}'
