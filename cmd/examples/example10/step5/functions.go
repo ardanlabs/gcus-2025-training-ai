@@ -461,3 +461,53 @@ func (gce *GoCodeEditor) Call(ctx context.Context, toolCall client.ToolCall) (re
 
 	return toolSuccessResponse(toolCall.ID, gce.name, "message", action)
 }
+
+// -----------------------------------------------------------------------------
+
+// GoModTidy represents a tool that can be used to edit Go source code files.
+type GoModTidy struct {
+	name string
+}
+
+// RegisterGoModTidy run the `go mod tidy` command for us in the current project.
+func RegisterGoModTidy(tools map[string]Tool) client.D {
+	gce := GoModTidy{
+		name: "tool_go_mod_tidy",
+	}
+	tools[gce.name] = &gce
+
+	return gce.toolDocument()
+}
+
+// toolDocument defines the metadata for the tool that is provied to the model.
+func (gce *GoModTidy) toolDocument() client.D {
+	return client.D{
+		"type": "function",
+		"function": client.D{
+			"name":        gce.name,
+			"description": "Edit Golang source code files including adding, replacing, and deleting lines.",
+			"parameters": client.D{
+				"type": "object",
+				"properties": client.D{
+					"path": client.D{
+						"type":        "string",
+						"description": "Relative path and name of the Golang file",
+					},
+					"line_number": client.D{
+						"type":        "integer",
+						"description": "The line number for the code change",
+					},
+					"type_change": client.D{
+						"type":        "string",
+						"description": "The type of change to make: add, replace, delete",
+					},
+					"line_change": client.D{
+						"type":        "string",
+						"description": "The text to add, replace, delete",
+					},
+				},
+				"required": []string{"path", "line_number", "type_change", "line_change"},
+			},
+		},
+	}
+}

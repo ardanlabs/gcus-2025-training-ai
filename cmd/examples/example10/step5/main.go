@@ -127,6 +127,7 @@ func NewAgent(getUserMessage func() (string, bool)) (*Agent, error) {
 			RegisterSearchFiles(tools),
 			RegisterCreateFile(tools),
 			RegisterGoCodeEditor(tools),
+			RegisterGoModTidy(tools),
 		},
 	}
 
