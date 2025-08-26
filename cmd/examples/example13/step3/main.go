@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ardanlabs/ai-training/foundation/audio"
 	"github.com/ardanlabs/ai-training/foundation/client"
 	"github.com/ardanlabs/ai-training/foundation/vector"
 )
@@ -42,10 +43,9 @@ type frame struct {
 }
 
 const (
-	urlChat   = "http://localhost:11434/v1/chat/completions"
-	urlEmbed  = "http://localhost:11439/v1/embeddings"
-	modelChat = "hf.co/mradermacher/NuMarkdown-8B-Thinking-GGUF:Q4_K_M"
-	// modelChat  = "mistral-small3.2:latest"
+	urlChat    = "http://localhost:11434/v1/chat/completions"
+	urlEmbed   = "http://localhost:11439/v1/embeddings"
+	modelChat  = "mistral-small3.2:latest"
 	modelEmbed = "nomic-embed-vision-v1.5"
 
 	dimensions          = 768
@@ -53,6 +53,16 @@ const (
 	sourceDir           = "zarf/samples/videos/"
 	sourceFileName      = "zarf/samples/videos/training.mp4"
 )
+
+// -----------------------------------------------------------------------------
+
+var audioCfg = audio.Config{
+	SetLanguage: "en",
+	Temperature: 0.1,
+	Threads:     4,
+}
+
+// -----------------------------------------------------------------------------
 
 func main() {
 	if err := run(); err != nil {
@@ -68,6 +78,11 @@ func run() error {
 	llmChat := client.NewLLM(urlChat, modelChat)
 	llmEmbed := client.NewLLM(urlEmbed, modelEmbed)
 
+	adio, err := audio.New(client.StdoutLogger, "zarf/audio/ggml-tiny.bin")
+	if err != nil {
+		return fmt.Errorf("starting audio: %w", err)
+	}
+
 	// -------------------------------------------------------------------------
 
 	if err := splitVideoIntoChunks(sourceFileName); err != nil {
@@ -81,7 +96,7 @@ func run() error {
 	chunksDir := filepath.Join(sourceDir, "chunks")
 	fmt.Printf("\nProcessing video chunks in directory: %s\n", chunksDir)
 
-	err := fs.WalkDir(os.DirFS(chunksDir), ".", func(path string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(os.DirFS(chunksDir), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -104,7 +119,7 @@ func run() error {
 			totalFramesTime += duration
 		}()
 
-		return processChunk(ctx, llmChat, llmEmbed, sourceDir, path, totalFramesTime, duration)
+		return processChunk(ctx, llmChat, llmEmbed, adio, sourceDir, path, totalFramesTime, duration)
 	})
 	if err != nil {
 		return fmt.Errorf("walk directory: %w", err)
@@ -143,8 +158,6 @@ const extractCodePrompt = `
 			"code": "<source code>"
 		}
 
-		Replace the "<source code>" with the actual code.
-
 		If there is no code in the image, output:
 		{
 			"error": "NO CODE FOUND"
@@ -157,7 +170,7 @@ const extractCodePrompt = `
 		DO NOT INCLUDE ANYTHING ELSE BUT THE JSON DOCUMENT IN THE RESPONSE.
 `
 
-func processChunk(ctx context.Context, llmChat *client.LLM, llmEmbed *client.LLM, sourceDir string, sourceFileName string, totalFramesTime float64, duration float64) error {
+func processChunk(ctx context.Context, llmChat *client.LLM, llmEmbed *client.LLM, adio *audio.Audio, sourceDir string, sourceFileName string, totalFramesTime float64, duration float64) error {
 	fullPath := filepath.Join(sourceDir, "chunks", sourceFileName)
 
 	fmt.Printf("\nRemoving the frames from the previous chunk: %s\n", filepath.Join(sourceDir, "frames"))
@@ -323,6 +336,21 @@ func processChunk(ctx context.Context, llmChat *client.LLM, llmEmbed *client.LLM
 		fmt.Printf("\t- FileName: %s - [%.4f, %.4f, %s]\n", f.fileName, f.startTime, f.startTime, f.classification)
 	}
 
+	// -------------------------------------------------------------------------
+
+	if err := convertVideoToWav(fullPath); err != nil {
+		return fmt.Errorf("converting video to wav: %w", err)
+	}
+
+	response, err := adio.Process(ctx, audioCfg, "zarf/samples/audio/output.wav")
+	if err != nil {
+		return fmt.Errorf("process audio: %w", err)
+	}
+
+	fmt.Printf("\nChunk audio transcription: %s\n", response.Text)
+
+	// -------------------------------------------------------------------------
+
 	fmt.Println("\nDONE")
 	return nil
 }
@@ -422,4 +450,22 @@ func readImage(fileName string) ([]byte, string, error) {
 	default:
 		return nil, "", fmt.Errorf("unsupported file type: %s: filename: %s", mimeType, fileName)
 	}
+}
+
+// -------------------------------------------------------------------------
+
+func convertVideoToWav(source string) error {
+	fmt.Printf("Converting Video %s to Audio...\n", source)
+	defer fmt.Println("\nDONE Converting Video to audio")
+
+	// Ensure there is no previous file to allow ffmpeg to create the new one.
+	_ = os.Remove("zarf/samples/audio/output.wav")
+
+	ffmpegCommand := fmt.Sprintf("ffmpeg -i %s -ar 16000 -ac 1 -c:a pcm_s16le -loglevel error zarf/samples/audio/output.wav", source)
+	out, err := exec.Command("/bin/sh", "-c", ffmpegCommand).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error while running ffmpeg: %w: %s", err, string(out))
+	}
+
+	return nil
 }
