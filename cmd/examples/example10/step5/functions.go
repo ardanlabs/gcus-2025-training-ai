@@ -487,7 +487,7 @@ func (gce *GoModTidy) toolDocument() client.D {
 		"function": client.D{
 			"name":        gce.name,
 			"description": "Edit Go projects making sure that they are always tidy and don't contain extra dependencies.",
-			"parameters": client.D{},
+			"parameters":  client.D{},
 		},
 	}
 }
