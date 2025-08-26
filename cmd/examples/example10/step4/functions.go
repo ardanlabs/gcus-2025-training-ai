@@ -99,7 +99,7 @@ func (gw *GetWeather) Call(ctx context.Context, toolCall client.ToolCall) (resp 
 	location := toolCall.Function.Arguments["location"].(string)
 
 	data := map[string]any{
-		"temperature": 28,
+		"temperature": 85,
 		"humidity":    80,
 		"wind_speed":  10,
 		"description": fmt.Sprintln("The weather in", location, "is hot and humid"),
