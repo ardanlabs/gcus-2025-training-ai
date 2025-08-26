@@ -102,5 +102,34 @@ func run() error {
 
 	fmt.Print("\n")
 
+	// Compare each data point to every other by performing a cosine
+	// similarity comparison using the vector embedding from the LLM.
+	for _, target := range dataPoints {
+		results := vector.Similarity(target, dataPoints...)
+
+		for _, result := range results {
+			fmt.Printf("%s -> %s: %.2f%% similar\n",
+				result.Target.(data).Name,
+				result.DataPoint.(data).Name,
+				result.Percentage)
+		}
+		fmt.Print("\n")
+	}
+
+	// -------------------------------------------------------------------------
+
+	// Perform the same vector math as in example2 using the LLM vector embedding.
+
+	// You can perform vector math by adding and subtracting vectors.
+	kingSubMan := vector.Sub(dataPoints[3].Vector(), dataPoints[1].Vector())
+	kingSubManPlusWoman := vector.Add(kingSubMan, dataPoints[2].Vector())
+	queen := dataPoints[4].Vector()
+
+	// Now compare a (King - Man + Woman) to a Queen.
+	result := vector.CosineSimilarity(kingSubManPlusWoman, queen)
+	fmt.Printf("King - Man + Woman ~= Queen similarity: %.2f%%\n", result*100)
+
+	return nil
+
 	return nil
 }
