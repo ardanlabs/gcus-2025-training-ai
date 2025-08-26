@@ -42,10 +42,9 @@ type frame struct {
 }
 
 const (
-	urlChat   = "http://localhost:11434/v1/chat/completions"
-	urlEmbed  = "http://localhost:11439/v1/embeddings"
-	modelChat = "hf.co/mradermacher/NuMarkdown-8B-Thinking-GGUF:Q4_K_M"
-	// modelChat  = "mistral-small3.2:latest"
+	urlChat    = "http://localhost:11434/v1/chat/completions"
+	urlEmbed   = "http://localhost:11439/v1/embeddings"
+	modelChat  = "hf.co/mradermacher/NuMarkdown-8B-Thinking-GGUF:Q4_K_M"
 	modelEmbed = "nomic-embed-vision-v1.5"
 
 	dimensions          = 768
