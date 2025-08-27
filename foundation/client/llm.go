@@ -81,7 +81,7 @@ func (llm *LLM) ChatCompletionsSSE(ctx context.Context, content string) (chan Ch
 		"temperature": 1.0,
 		"top_p":       0.5,
 		"top_k":       20,
-		"stream":      false,
+		"stream":      true,
 	}
 
 	ch := make(chan ChatSSE, 100)
